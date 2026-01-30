@@ -152,6 +152,43 @@ Store `$QUICK_DIR` for use in orchestration.
 
 ---
 
+**Step 4.5: Match notes for this quick task**
+
+```bash
+# Use task description as the matching context
+MATCHED_OUTPUT=$(PHASE_NAME="quick task" PHASE_GOAL="$DESCRIPTION" \
+  bash commands/gsd/match-notes.md 2>/dev/null)
+
+# Build notes section if matches exist
+NOTES_SECTION=""
+if [ -n "$MATCHED_OUTPUT" ]; then
+  NOTES_SECTION="<matched_notes>
+
+Notes relevant to this task:
+
+"
+  in_content=false
+  while IFS= read -r line; do
+    if [ "$line" = "CONTENT_START" ]; then
+      in_content=true
+    elif [ "$line" = "CONTENT_END" ]; then
+      in_content=false
+      NOTES_SECTION="$NOTES_SECTION
+---
+"
+    elif [ "$in_content" = "true" ]; then
+      NOTES_SECTION="$NOTES_SECTION$line
+"
+    fi
+  done <<< "$MATCHED_OUTPUT"
+
+  NOTES_SECTION="$NOTES_SECTION
+</matched_notes>"
+fi
+```
+
+---
+
 **Step 5: Spawn planner (quick mode)**
 
 Spawn gsd-planner with quick mode context:
@@ -169,6 +206,8 @@ Task(
 @.planning/STATE.md
 
 </planning_context>
+
+${NOTES_SECTION}
 
 <constraints>
 - Create a SINGLE plan with 1-3 focused tasks
@@ -208,6 +247,8 @@ Execute quick task ${next_num}.
 
 Plan: @${QUICK_DIR}/${next_num}-PLAN.md
 Project state: @.planning/STATE.md
+
+${NOTES_SECTION}
 
 <constraints>
 - Execute all tasks in the plan
